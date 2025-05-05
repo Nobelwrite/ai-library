@@ -1,0 +1,76 @@
+venv/
+.venv/
+*/env/
+*/venv/
+*.pyenv
+
+# --- Python Cache & Compiled Files ---
+# These are generated automatically and not needed in the image.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- IDE / Editor Configuration ---
+# Local development settings.
+
+.idea/
+
+
+# --- Git ---
+# The git repository history is not needed.
+.git/
+.gitignore
+.gitattributes
+
+# --- Environment Variables ---
+# CRITICAL: Never include .env files containing secrets in your image!
+# Use Docker secrets, build arguments (with care), or runtime environment variables instead.
+.env
+*.env
+
+# --- Operating System Files ---
+# Common OS-specific files.
+.DS_Store
+Thumbs.db
+
+# --- Test Artifacts & Coverage ---
+# Test caches, reports, etc.
+.pytest_cache/
+.tox/
+htmlcov/
+.coverage
+*.coverage
+
+# --- Build Artifacts ---
+# If you build distributions.
+dist/
+build/
+*.egg-info/
+
+# --- Docker Files ---
+# Usually don't need to copy these into the image itself.
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# --- Log Files ---
+*.log
+logs/
+
+# --- Local Databases (if applicable) ---
+# Example: ignore SQLite databases used only for local dev
+*.sqlite3
+*.db
+
+# --- Media / Static Files (if managed separately) ---
+# If your static/media files are served differently or stored
+# externally in production, you might ignore local versions.
+# This depends heavily on your setup. Comment out if needed.
+# mediafiles/
+# staticfiles/
+# *.jpeg
+# *.png
+
+# --- Add any other project-specific files/folders to ignore ---

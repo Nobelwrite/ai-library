@@ -1,0 +1,54 @@
+version: "3.8"
+services:
+  # Your existing application service
+  app:
+    build:
+      context: . # Using '.' instead of '_' for current directory context is more standard
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000" # Maps host port 8000 to container port 5000
+    volumes:
+      - .:/
+    depends_on:
+      - rabbitmq # Ensures rabbitmq starts before app_root
+    environment:
+      # --- Add environment variables for RabbitMQ connection ---
+      - RABBITMQ_HOST=rabbitmq # Use the service name 'rabbitmq' as the hostname
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=user     # Use the user defined in the rabbitmq service below
+      - RABBITMQ_PASS=guest # Use the password defined in the rabbitmq service below
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - RABBITMQ_URL
+      # Add any other environment variables your app needs
+    networks:
+      - app_network # Connect this service to the shared network
+
+  # --- Add the RabbitMQ service ---
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: my_rabbitmq_app
+    hostname: rabbitmq_node1
+    ports:
+      # Map host port 15672 to container port 15672 (Management UI)
+      - "15672:15672"
+      # Map host port 5672 to container port 5672 (AMQP protocol for your app)
+      - "5672:5672"
+    volumes:
+      # Mount a named volume to persist RabbitMQ data (queues, messages, users)
+      # Data will persist even if the container is removed and recreated
+      - rabbitmq_data:/var/app_root/rabbitmq
+    environment:
+      # Set default username and password (CHANGE THESE!)
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      # You can also set default vhost if needed:
+      # - RABBITMQ_DEFAULT_VHOST=my_vhost
+    networks:
+      - app_network # Connect this service to the shared network
+# --- Declare top-level volumes ---
+volumes:
+  rabbitmq_data: # Defines the named volume used by the rabbitmq service
+# --- Declare top-level networks ---
+networks:
+  app_network: # Defines the custom bridge network
+    driver: bridge
