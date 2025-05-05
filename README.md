@@ -5,12 +5,12 @@
 * Get a list of books
 * Get a specific book
 * Order for a book
-* AI service is employed to attain summary or other prompts peculiar to a specific book in available in the library.
+* AI service is employed to attain summary or other prompts peculiar to a specific book available in the library.
 
 #### Tools:
 * Docker for containerization
 * RabbitMQ for communication between consumer and producer to asynchronously process order
-* SocketIO to transfer communication and give status real time
+* SocketIO to transfer communication and give status real-time
 
 ## Features
 * Asynchronous order processing via RabbitMQ
@@ -34,8 +34,8 @@ Provide step-by-step instructions.
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd <repository-directory>
+    git clone https://github.com/Nobelwrite/ai-library.git
+    cd NewLIB
     ```
 
 2.  **Create and activate a virtual environment:**
