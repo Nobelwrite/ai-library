@@ -1,11 +1,13 @@
 import json
 import os
+import re
 import uuid
 import pika
 from dotenv import load_dotenv
 from flask import Flask, jsonify, abort, request
-#from flask import request
 from flask_socketio import SocketIO
+import ai_service
+from data_store import books_data, orders, inventory
 
 load_dotenv()
 
@@ -18,70 +20,9 @@ socketio = SocketIO(app, async_mode='eventlet')
 
 print(f"DEBUG: Initial RABBITMQ_URL value = {repr(RABBITMQ_URL)}")
 
-books_data= {
-    # Using dictionary for easier lookup by ID
-    1: {
-        "id": 1,
-        "title": "The Hitchhiker's Guide to the Galaxy",
-        "author": "Douglas Adams",
-        "year": 1979,
-        "isbn": "978-0345391803",
-        "stock": 5
-    },
-    2: {
-        "id": 2,
-        "title": "Ogboju Ode Ninu Igbo Irunmole",
-        "author": "D.O. Fagunwa",
-        "year": 1938,
-        "isbn": "978-9781560017", # Example ISBN
-        "stock": 3
-    },
-    3: {
-        "id": 3,
-        "title": "1984",
-        "author": "George Orwell",
-        "year": 1949,
-        "isbn": "978-0451524935",
-        "stock": 10
-    },
-    4: {
-        "id": 4,
-        "title": "Stay With Me",
-        "author": "Ayọ̀bámi Adébáyọ̀",
-        "year": 2017,
-        "isbn": "978-1101904110",
-        "stock": 2
-    },
-    5: {
-        "id": 5,
-        "title": "Things Fall Apart",
-        "author": "Chinua Achebe",
-        "year": 1958,
-        "isbn": "978-0385474542",
-        "stock": 7
-    },
-     6: {
-        "id": 6,
-        "title": "Pride and Prejudice",
-        "author": "Jane Austen",
-        "year": 1813,
-        "isbn": "978-0141439518",
-        "stock": 4
-    }
-}
-
-inventory= {
-    1: 5,
-    2: 3,
-    3: 10,
-    4:2,
-    5:7,
-    6:4
-    # ... other book IDs and stock counts ...
-}
 
 #inventory = [{book_id: data['stock'] for book_id, data in books_data.items()}]
-orders = {}
+
 @app.route('/')
 def api_root():
     return "Welcome to our Lib"
@@ -205,6 +146,7 @@ def create_order():
         book = books_data[book_id]
         # Decision: Safely get current stock count from INVENTORY, defaulting to 0 if book_id not in inventory.
         current_stock = inventory.get(book_id, 0)
+        available_titles = []
 
         # Decision: Print debug info just before the comparison to inspect values and types. Use repr() for clear type representation.
         print(f"Checking item with book_id={book_id}")
@@ -282,7 +224,61 @@ def handle_disconnect():
     # Decision: Log when a client disconnects.
     print(f"Client disconnected: {request.sid}")
 
+@app.route('/api/v1/ai/prompt', methods=['POST'])
+def handle_ai_chat():
+    #Handles AI prompts """
+    data = request.get_json()
+    if not data or not isinstance(data.get('query'), str) or not data['query']:
+        return jsonify({"error": {"message": "Invalid request. 'query' field (string) is required."}, "status": "failed"}), 400
+
+    user_query = data['query']
+    print(f"INFO [API]: Received AI query: '{user_query[:100]}...'") # Log query snippet
+
+    try:
+        # --- Get available titles (already checked for list return in service) ---
+        available_titles = ai_service.get_available_book_titles()
+        # Optional: Add a redundant check here if you are paranoid
+        if not isinstance(available_titles, list):
+             print("CRITICAL ERROR [API]: get_available_titles did not return a list!")
+             # Use the specific error message structure
+             return jsonify({"error": {"message": "Internal configuration error fetching allowed titles."}, "status": "failed"}), 500
+
+        # --- Call the main AI processing function ---
+        result = ai_service.get_ai_response(user_query, available_titles)
+
+        # --- Process the structured response from the AI service ---
+        if not isinstance(result, dict):
+            print(f"CRITICAL ERROR [API]: ai_service.get_ai_response did not return a dict! Got: {type(result)}")
+            return jsonify({"error": {"message": "Internal server error processing AI request."}, "status": "failed"}), 500
+
+        # Check if the service returned an error payload
+        if 'error' in result:
+            error_payload = result['error']
+            status = result.get('status', 'failed') # Get status if present
+            print(f"WARN [API]: AI service returned error: {error_payload.get('message')}")
+            # Determine HTTP status code (e.g., 400 for refusal, 500 for internal AI failure)
+            http_status_code = 400 if status == 'refused' else 500
+            return jsonify({"error": error_payload}), http_status_code
+        # Check if the service returned a data payload
+        elif 'data' in result:
+             print("INFO [API]: AI service returned success.")
+             return jsonify(result['data']), 200 # Return just the inner data part for success
+        else:
+             # Should not happen if ai_service returns consistent format
+             print("CRITICAL ERROR [API]: AI service returned unknown structure.")
+             return jsonify({"error": {"message": "Internal server error: Unknown AI response format."}, "status": "failed"}), 500
+
+    except Exception as e:
+        # Catch unexpected errors in the API handler itself
+        print(f"CRITICAL ERROR [API]: Unexpected error in handle_ai_chat: {e}")
+        return jsonify({"error": {"message": "An unexpected server error occurred handling AI request."}, "status": "failed"}), 500
+
+
+
 if __name__ == '__main__':
     print("Starting Flask-SocketIO server...")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+
+
+
 
